@@ -3,6 +3,7 @@ require 'db_connect.php';
 
 $message = "";
 $is_success = false;
+$ssn_is_registered = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $id = $_POST['identity_id'];
@@ -21,6 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (PDOException $e) {
         if ($e->getCode() == 23000) {
             $message = "註冊失敗：該身分證字號已註冊過。";
+            $ssn_is_registered = true;
         } else {
             $message = "註冊失敗：" . $e->getMessage();
         }
@@ -39,6 +41,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </style>
     <?php if ($is_success): ?>
         <meta http-equiv="refresh" content="3;url=login.php">
+    <?php elseif ($ssn_is_registered): ?>
+        <meta http-equiv="refresh" content="3;url=register.php">
     <?php endif; ?>
 </head>
 <body>
