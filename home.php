@@ -87,16 +87,20 @@
 
             // 1. 先查驗身份
             fetch('get_user_info.php')
-                .then(response => response.json())
-                .then(user => {
-                    const statusContainer = document.getElementById('user-status');
-                    if (user.is_logged_in) {
-                        // 如果登入，改寫成問候語
-                        statusContainer.innerHTML = `<span style="font-weight:bold;">您好，${user.name}</span>`;
-                    } else {
-                        // 如果沒登入，維持登入按鈕（上面 HTML 寫好的那個）
-                    }
-                });
+            .then(response => response.json())
+            .then(user => {
+                const statusContainer = document.getElementById('user-status');
+                if (user.is_logged_in) {
+                    // 登入狀態：顯示名字 + 登出連結
+                    statusContainer.innerHTML = `
+                        <span style="margin-right: 15px;">您好，${user.name}</span>
+                        <a href="logout.php" style="color: #e74c3c; font-weight: bold; text-decoration: none;">登出</a>
+                    `;
+                } else {
+                    // 未登入狀態：顯示原本的登入按鈕
+                    statusContainer.innerHTML = `<a href="login.php" class="btn-login">會員登入</a>`;
+                }
+            });
             
             // 1. 默默發送外送員去跟後端要演唱會資料
             fetch('get_concerts.php')

@@ -27,6 +27,13 @@
         .btn-go { background-color: #2ecc71; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; text-decoration: none; }
         .btn-go:hover { background-color: #27ae60; }
         .btn-disabled { background-color: #cbd5e1; color: #94a3b8; cursor: not-allowed; }
+
+        /* 下拉選單樣式 */
+        select {
+        border: 2px solid #3498db;
+        background-color: white;
+        cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -36,7 +43,13 @@
         <div class="concert-meta">📍 地點：台北小巨蛋 | 📅 日期：2026-12-31</div>
 
         <h2>🎟️ 請選擇票券區域</h2>
-        <div id="zone-list"></div>
+        <select id="zone-select" style="width: 100%; padding: 15px; font-size: 1.1rem; border-radius: 8px;">
+            <option value="">-- 請選擇區域 --</option>
+        </select>
+
+        <div style="margin-top: 20px;">
+            <button id="confirm-btn" class="btn-go" style="width: 100%;" disabled>請先選擇區域</button>
+        </div>
     </div>
 
     <script>
@@ -53,46 +66,41 @@
 
             // 2. 帶著網址參數呼叫後端 get_zones.php
             fetch(`get_zones.php?concert_id=${concertId}`)
-                .then(response => response.json())
-                .then(result => {
-                    if (result.status === 'success') {
-                        // 更新頁面大標題
-                        document.getElementById('event-title').innerText = result.event_title;
+            .then(response => response.json())
+            .then(result => {
+                if (result.status === 'success') {
+                    document.getElementById('event-title').innerText = result.event_title;
+                    
+                    const select = document.getElementById('zone-select');
+                    const btn = document.getElementById('confirm-btn');
 
-                        const zoneContainer = document.getElementById('zone-list');
-                        zoneContainer.innerHTML = '';
+                    result.data.forEach(zone => {
+                        const option = document.createElement('option');
+                        option.value = zone.zone_id;
+                        
+                        // 如果沒票了，在選項上標記「已售罄」且設為 disabled
+                        if (zone.available_seats <= 0) {
+                            option.text = `${zone.zone_name} - $${zone.price} (已售罄)`;
+                            option.disabled = true;
+                        } else {
+                            option.text = `${zone.zone_name} - $${zone.price} (剩餘: ${zone.available_seats})`;
+                        }
+                        select.appendChild(option);
+                    });
 
-                        // 3. 迴圈渲染每一個票區
-                        result.data.forEach(zone => {
-                            const item = document.createElement('div');
-                            item.className = 'zone-item';
-
-                            // 模擬座位如果小於等於 0 就停用按鈕
-                            let actionButton = '';
-                            if (zone.available_seats > 0) {
-                                actionButton = `<button class="btn-go" onclick="goToCheckout(${concertId}, ${zone.zone_id})">立即點選</button>`;
-                            } else {
-                                actionButton = `<button class="btn-go btn-disabled" disabled>已售罄</button>`;
-                            }
-
-                            item.innerHTML = `
-                                <div class="zone-details">
-                                    <h3>${zone.zone_name}</h3>
-                                    <p>剩餘座位：<strong>${zone.available_seats}</strong> 位</p>
-                                </div>
-                                <div>
-                                    <span class="price">$${zone.price}</span>
-                                    ${actionButton}
-                                </div>
-                            `;
-                            zoneContainer.appendChild(item);
-                        });
-                    } else {
-                        document.getElementById('zone-list').innerHTML = `<p style="color:red;">${result.message}</p>`;
-                    }
-                })
-                .catch(error => console.error('發生錯誤:', error));
-        });
+                    // 當選單變更時，啟用按鈕並綁定動作
+                    select.addEventListener('change', function() {
+                        if (this.value) {
+                            btn.disabled = false;
+                            btn.innerText = "立即前往結帳";
+                            btn.onclick = () => goToCheckout(concertId, this.value);
+                        } else {
+                            btn.disabled = true;
+                            btn.innerText = "請先選擇區域";
+                        }
+                    });
+                }
+            });
 
         // 點選票區後的動作（進入第三關：填寫張數頁）
         function goToCheckout(concertId, zoneId) {
