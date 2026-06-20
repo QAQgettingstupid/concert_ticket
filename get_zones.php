@@ -15,16 +15,17 @@ if (!$concert_id) {
 try {
     // 3. 查詢資料庫：撈出該活動的所有區域
     // 根據你的資料庫結構，event_id 對應的是 concert_id
-    $stmt = $pdo->prepare("SELECT zone_id, zone_name, price, total_seats, available_seats 
-                           FROM ticket_zones 
-                           WHERE event_id = ?");
+    $stmt = $pdo->prepare("SELECT zone_id, zone_name, price, total_seats, available_seats, event_name
+                           FROM ticket_zones join events on ticket_zones.event_id = events.event_id
+                           WHERE events.event_id = ?");
     $stmt->execute([$concert_id]);
     $zones = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $first_event_name = !empty($zones) ? $zones[0]['event_name'] : '活動名稱';
 
     // 4. 回傳結果給前端
     echo json_encode([
         'status' => 'success',
-        'event_title' => '活動名稱', // 如果你有 events 資料表，建議在這裡 JOIN 撈取
+        'event_name' => $first_event_name,
         'data' => $zones
     ]);
 

@@ -119,7 +119,7 @@
                             let buttonHTML = '';
                             if (concert.status === '預售中') {
                                 // 還有票：點擊會跳轉到第二關（選區頁），並用網址參數帶上這場演唱會的 id
-                                buttonHTML = `<a href="select_zone.php?concert_id=${concert.concert_id}" class="btn-buy">立即搶票</a>`;
+                                buttonHTML = `<a href="select_zone.php?concert_id=${concert.concert_id}&concert-title=${concert.title}" class="btn-buy">立即搶票</a>`;
                             } else {
                                 // 沒票了：按鈕反灰，停用連結
                                 buttonHTML = `<button class="btn-buy status-soldout" disabled>已售罄</button>`;
