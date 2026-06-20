@@ -84,6 +84,19 @@
     <script>
         // 網頁一載入完成，立刻執行裡面的程式碼
         document.addEventListener('DOMContentLoaded', function() {
+
+            // 1. 先查驗身份
+            fetch('get_user_info.php')
+                .then(response => response.json())
+                .then(user => {
+                    const statusContainer = document.getElementById('user-status');
+                    if (user.is_logged_in) {
+                        // 如果登入，改寫成問候語
+                        statusContainer.innerHTML = `<span style="font-weight:bold;">您好，${user.name}</span>`;
+                    } else {
+                        // 如果沒登入，維持登入按鈕（上面 HTML 寫好的那個）
+                    }
+                });
             
             // 1. 默默發送外送員去跟後端要演唱會資料
             fetch('get_concerts.php')
