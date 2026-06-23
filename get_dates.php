@@ -14,19 +14,17 @@ if (!$concert_id) {
 
 try {
     // 假設你的資料表中日期欄位名稱為 concert_date
-    $stmt = $pdo->prepare("SELECT DISTINCT event_date 
+    $stmt = $pdo->prepare("SELECT DISTINCT event_date,date_id 
                            FROM event_dates 
                            WHERE event_id = ? 
                            ORDER BY event_date ASC");
     
     $stmt->execute([$concert_id]);
-    
-    // 將結果轉為一維陣列 (只取出日期字串)
-    $dates = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     echo json_encode([
         'status' => 'success',
-        'dates' => $dates
+        'dates' => $result
     ]);
 
 } catch (PDOException $e) {

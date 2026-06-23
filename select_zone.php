@@ -60,15 +60,37 @@
             fetch(`get_dates.php?concert_id=${concertId}`)
             .then(res => res.json())
             .then(result => {
-                result.dates.forEach(date => {
+                result.dates.forEach(item => { // 這裡的 item 包含 id 和 date
                     const opt = document.createElement('option');
-                    opt.value = date;
-                    opt.text = date;
+                    opt.value = item.date_id;    // 💡 方案一：value 改放動態的 date_id (例如 1)
+                    opt.text = item.event_date;  // 畫面上顯示的依然是人類看的日期 (例如 2026-09-15)
                     dateSelect.appendChild(opt);
                 });
             });
 
-            // 2. 抓取該場次對應的資料庫周邊商品清單 (包含剩餘數量 stock)
+            // 3. 當日期變更時，抓取該日期的票區
+            dateSelect.addEventListener('change', function() {
+                const selectedDateid = this.value;
+                if (!selectedDateid) {
+                    resetForm();
+                    return;
+                }
+                
+                fetch(`get_zones.php?date_id=${selectedDateid}`)
+                .then(res => res.json())
+                .then(result => {
+                    zoneSelect.innerHTML = '<option value="">-- 請選擇區域 --</option>';
+                    result.data.forEach(zone => {
+                        const opt = document.createElement('option');
+                        opt.value = zone.zone_id;
+                        opt.text = `${zone.zone_name} - $${zone.price}`;
+                        zoneSelect.appendChild(opt);
+                    });
+                    zoneSelect.disabled = false;
+                });
+            });
+
+            // 抓取該場次對應的資料庫周邊商品清單 (包含剩餘數量 stock)
             fetch(`get_merchandises.php?concert_id=${concertId}`)
             .then(res => res.json())
             .then(result => {
@@ -121,28 +143,6 @@
                 } else {
                     merchContainer.innerHTML = '<p style="color: #95a5a6;">本場次暫無提供周邊商品加購。</p>';
                 }
-            });
-
-            // 3. 當日期變更時，抓取該日期的票區
-            dateSelect.addEventListener('change', function() {
-                const selectedDate = this.value;
-                if (!selectedDate) {
-                    resetForm();
-                    return;
-                }
-                
-                fetch(`get_zones.php?concert_id=${concertId}&date=${selectedDate}`)
-                .then(res => res.json())
-                .then(result => {
-                    zoneSelect.innerHTML = '<option value="">-- 請選擇區域 --</option>';
-                    result.data.forEach(zone => {
-                        const opt = document.createElement('option');
-                        opt.value = zone.zone_id;
-                        opt.text = `${zone.zone_name} - $${zone.price}`;
-                        zoneSelect.appendChild(opt);
-                    });
-                    zoneSelect.disabled = false;
-                });
             });
 
             // 4. 當票區選擇後，解鎖張數與周邊商品
