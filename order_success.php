@@ -73,15 +73,13 @@ $total_amount = isset($_GET['total']) ? intval($_GET['total']) : 0;
 
     <div class="notice-box">
         <div class="notice-title">💡 現場取票與付款須知：</div>
-        1. 本系統採用<strong>「活動當日現場現金付款取票」</strong>機制。<br>
-        2. 演出當天請至活動現場的「網路購票取票處」，向工作人員出示您的<strong>訂單編號（#<?php echo str_pad($order_id, 6, '0', STR_PAD_LEFT); ?>）</strong>。<br>
-        3. 請務必攜帶與會員帳號相符的<strong>身分證件</strong>供核對身份。<br>
-        4. 請準備剛好的現金（共 $<?php echo number_format($total_amount); ?> 元），以利現場核對快速完成取票。
+        1. 演出當天請至活動現場的「網路購票取票處」，向工作人員出示您的<strong>訂單編號</strong>。<br>
+        2. 請務必攜帶與<strong>入場人</strong>相符的<strong>身分證件</strong>供核對身份。<br>
     </div>
 
     <div class="btn-group">
         <a href="my_orders.php" class="btn btn-primary">查看我的訂單</a>
-        <a href="index.php" class="btn btn-secondary">回首頁</a>
+        <a href="home.php" class="btn btn-secondary">回首頁</a>
     </div>
 </div>
 

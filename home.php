@@ -5,7 +5,15 @@
     <title>搶票系統 - 演唱會熱賣中 (呈現層)</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; background-color: #f8f9fa; color: #333; }
-        h1 { text-align: center; margin-bottom: 40px; color: #2c3e50; }
+        
+        /* 💡 保持大標題與上方功能按鈕的舒適距離 */
+        h1 { 
+            text-align: center; 
+            margin-top: 80px; 
+            margin-bottom: 40px; 
+            color: #2c3e50; 
+            font-weight: bold; 
+        }
         
         /* 設置卡片排版為網格(Grid)佈局，會自動隨螢幕寬度排版 */
         .concert-grid { 
@@ -48,11 +56,14 @@
         .status-soldout { background-color: #95a5a6; cursor: not-allowed; }
         .status-soldout:hover { background-color: #95a5a6; }
 
-        /* 右上角登入按鈕樣式 */
+        /* 右上角登入與會員狀態區塊樣式 */
         .login-btn-container {
             position: absolute;
-            top: 20px;
-            right: 20px;
+            top: 25px;
+            right: 25px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
         }
 
         .btn-login {
@@ -65,9 +76,30 @@
             font-size: 0.9rem;
             transition: background 0.3s;
         }
-
         .btn-login:hover {
             background-color: #219150;
+        }
+
+        /* 查看訂單按鈕樣式 */
+        .btn-orders {
+            background-color: transparent;
+            color: #3498db;
+            border: 2px solid #3498db;
+            padding: 8px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 0.9rem;
+            transition: all 0.2s ease-in-out;
+        }
+        .btn-orders:hover {
+            background-color: #3498db;
+            color: white;
+        }
+        
+        .user-name-text {
+            color: #4a5568;
+            font-weight: 500;
         }
     </style>
 </head>
@@ -82,7 +114,6 @@
     <div class="concert-grid" id="concert-list"></div>
 
     <script>
-        // 網頁一載入完成，立刻執行裡面的程式碼
         document.addEventListener('DOMContentLoaded', function() {
 
             // 1. 先查驗身份
@@ -91,41 +122,37 @@
             .then(user => {
                 const statusContainer = document.getElementById('user-status');
                 if (user.is_logged_in) {
-                    // 登入狀態：顯示名字 + 登出連結
+                    // 💡 已登入：動態塞入「查看訂單」按鈕、使用者暱稱、登出按鈕
                     statusContainer.innerHTML = `
-                        <span style="margin-right: 15px;">您好，${user.name}</span>
-                        <a href="logout.php" style="color: #e74c3c; font-weight: bold; text-decoration: none;">登出</a>
+                        <a href="my_orders.php" class="btn-orders">📋 我的訂單紀錄</a>
+                        <span class="user-name-text">您好，${user.name}</span>
+                        <a href="logout.php" style="color: #e74c3c; font-weight: bold; text-decoration: none; font-size: 0.9rem;">登出</a>
                     `;
                 } else {
-                    // 未登入狀態：顯示原本的登入按鈕
+                    // 💡 未登入：單純只顯示會員登入按鈕，絕對不會有訂單入口
                     statusContainer.innerHTML = `<a href="login.php" class="btn-login">會員登入</a>`;
                 }
             });
             
-            // 1. 默默發送外送員去跟後端要演唱會資料
+            // 2. 默默發送外送員去跟後端要演唱會資料
             fetch('get_concerts.php')
-                .then(response => response.json()) // 解析 JSON
+                .then(response => response.json())
                 .then(result => {
                     const listContainer = document.getElementById('concert-list');
-                    listContainer.innerHTML = ''; // 清空畫面
+                    listContainer.innerHTML = ''; 
 
                     if (result.status === 'success') {
-                        // 2. 用迴圈撈出每一場演唱會
                         result.data.forEach(concert => {
                             const card = document.createElement('div');
                             card.className = 'concert-card';
 
-                            // 判斷是否還有票，決定按鈕的外觀與功能
                             let buttonHTML = '';
                             if (concert.status === '預售中') {
-                                // 還有票：點擊會跳轉到第二關（選區頁），並用網址參數帶上這場演唱會的 id
                                 buttonHTML = `<a href="select_zone.php?concert_id=${concert.concert_id}&concert-title=${concert.title}" class="btn-buy">立即搶票</a>`;
                             } else {
-                                // 沒票了：按鈕反灰，停用連結
                                 buttonHTML = `<button class="btn-buy status-soldout" disabled>已售罄</button>`;
                             }
 
-                            // 3. 填入卡片的 HTML 內容
                             card.innerHTML = `
                                 <div>
                                     <h3 class="concert-title">${concert.title}</h3>
@@ -138,7 +165,6 @@
                                 ${buttonHTML}
                             `;
 
-                            // 4. 把卡片塞進網格容器裡
                             listContainer.appendChild(card);
                         });
                     } else {
