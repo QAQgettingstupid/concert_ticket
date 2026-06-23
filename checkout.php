@@ -8,9 +8,10 @@ if (!isset($_SESSION['user_id'])) {
 
 // 2. 直接獲取網址傳過來的變數
 $concert_id = isset($_GET['concert_id']) ? intval($_GET['concert_id']) : 0;
-$zone_id = isset($_GET['zone_id']) ? intval($_GET['zone_id']) : 0;
+$zone_id = isset($_GET['zone_id']) ? $_GET['zone_id'] : 0;
 $ticket_qty = isset($_GET['ticket_qty']) ? intval($_GET['ticket_qty']) : 1;
 $merch_data_str = isset($_GET['merch_data']) ? $_GET['merch_data'] : '';
+$attendee_data_str = isset($_GET['attendee_data']) ? $_GET['attendee_data'] : '';
 
 // 3. 直接從網址接收「活動名稱」與「票區文字」
 $concert_name = isset($_GET['concert_title']) ? $_GET['concert_title'] : '未知活動';
@@ -38,7 +39,13 @@ if (!empty($merch_data_str)) {
     }
 }
 
-// 💡 最終訂單總金額 = 票券總計 + 周邊總計
+// 解析實名制入場人 JSON
+$attendee_list = [];
+if (!empty($attendee_data_str)) {
+    $attendee_list = json_decode($attendee_data_str, true);
+}
+
+// 最終訂單總金額 = 票券總計 + 周邊總計
 $grand_total = $ticket_total + $merch_total;
 ?>
 
@@ -55,6 +62,12 @@ $grand_total = $ticket_total + $merch_total;
         
         .order-info-list { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 15px; margin: 15px 0; line-height: 1.8; }
         .item-row { display: flex; justify-content: space-between; }
+        
+        /* 實名制欄位外觀樣式 */
+        .attendee-review-list { background-color: #edf2f7; border: 1px solid #cbd5e1; border-radius: 6px; padding: 15px; margin: 15px 0; }
+        .attendee-review-item { padding: 12px 0; border-bottom: 1px dashed #cbd5e1; color: #2d3748; line-height: 1.6; }
+        .attendee-review-item:last-child { border-bottom: none; }
+        .attendee-detail { margin-left: 20px; color: #4a5568; }
         
         .merch-review-list { background-color: #fcfcfc; border: 1px dashed #bdc3c7; border-radius: 6px; padding: 15px; margin: 15px 0; }
         .merch-review-item { display: flex; justify-content: space-between; margin-bottom: 8px; color: #4a5568; }
@@ -83,6 +96,19 @@ $grand_total = $ticket_total + $merch_total;
             <strong>小計: $<?php echo number_format($ticket_total); ?></strong>
         </div>
     </div>
+
+    <?php if (is_array($attendee_list) && count($attendee_list) > 0): ?>
+    <h3>📝 實名制入場人資訊</h3>
+    <div class="attendee-review-list">
+        <?php foreach ($attendee_list as $person): ?>
+            <div class="attendee-review-item">
+                <div style="font-weight: bold; color: #2c3e50; margin-bottom: 4px;">👤 第 <?php echo intval($person['index']); ?> 位入場人</div>
+                <div class="attendee-detail">姓名：<strong><?php echo htmlspecialchars($person['name']); ?></strong></div>
+                <div class="attendee-detail">身分證字號：<strong><?php echo htmlspecialchars($person['id_number']); ?></strong></div>
+            </div>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
 
     <?php if (is_array($merch_list) && count($merch_list) > 0): ?>
     <h3>🛍️ 加購周邊商品明細</h3>
@@ -117,7 +143,9 @@ $grand_total = $ticket_total + $merch_total;
         <input type="hidden" name="concert_id" value="<?php echo $concert_id; ?>">
         <input type="hidden" name="zone_id" value="<?php echo $zone_id; ?>">
         <input type="hidden" name="ticket_qty" value="<?php echo $ticket_qty; ?>">
+        <input type="hidden" name="ticket_price" value="<?php echo $ticket_price; ?>">
         <input type="hidden" name="merch_data" value="<?php echo htmlspecialchars(is_array($merch_list) ? json_encode($merch_list) : $merch_data_str); ?>">
+        <input type="hidden" name="attendee_data" value="<?php echo htmlspecialchars(is_array($attendee_list) ? json_encode($attendee_list) : $attendee_data_str); ?>">
         <input type="hidden" name="total_amount" value="<?php echo $grand_total; ?>">
         
         <button type="submit" class="btn-submit">確認付款下單</button>

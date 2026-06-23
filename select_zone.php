@@ -8,15 +8,20 @@
         .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         h1 { color: #2c3e50; margin-top: 0; }
         
-        select {
+        select, input[type="text"] {
             border: 2px solid #3498db;
             background-color: white;
-            cursor: pointer;
             width: 100%; 
             padding: 15px; 
             font-size: 1.1rem; 
             border-radius: 8px;
             margin-bottom: 15px;
+            box-sizing: border-box;
+        }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #2980b9;
         }
         
         .hint-text { color: #e74c3c; font-size: 0.9rem; margin-top: -10px; margin-bottom: 20px; font-weight: bold; }
@@ -24,7 +29,12 @@
         .merch-item { margin-bottom: 15px; }
         .merch-item label { display: block; font-weight: bold; margin-bottom: 5px; color: #2c3e50; }
         
-        /* 新增：紅字標記剩餘數量的樣式 */
+        /* 實名制欄位樣式 */
+        .attendee-section { background-color: #edf2f7; border: 1px solid #cbd5e1; padding: 20px; border-radius: 8px; margin-top: 20px; }
+        .attendee-group { background: white; padding: 15px; border-radius: 6px; margin-bottom: 15px; border-left: 5px solid #3498db; }
+        .attendee-group h4 { margin: 0 0 10px 0; color: #2c3e50; }
+        .attendee-group label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.95rem; }
+
         .stock-highlight {
             color: #db594b;
             font-weight: bold;
@@ -48,6 +58,7 @@
             const zoneSelect = document.getElementById('zone-select');
             const ticketQtySelect = document.getElementById('ticket-qty');
             const merchContainer = document.getElementById('dynamic-merch-container');
+            const attendeeContainer = document.getElementById('dynamic-attendee-container');
             const confirmBtn = document.getElementById('confirm-btn');
 
             if (concertTitle) {
@@ -60,10 +71,10 @@
             fetch(`get_dates.php?concert_id=${concertId}`)
             .then(res => res.json())
             .then(result => {
-                result.dates.forEach(item => { // 這裡的 item 包含 id 和 date
+                result.dates.forEach(item => {
                     const opt = document.createElement('option');
-                    opt.value = item.date_id;    // 💡 方案一：value 改放動態的 date_id (例如 1)
-                    opt.text = item.event_date;  // 畫面上顯示的依然是人類看的日期 (例如 2026-09-15)
+                    opt.value = item.date_id;    
+                    opt.text = item.event_date;  
                     dateSelect.appendChild(opt);
                 });
             });
@@ -90,12 +101,12 @@
                 });
             });
 
-            // 抓取該場次對應的資料庫周邊商品清單 (包含剩餘數量 stock)
+            // 抓取該場次對應的資料庫周邊商品清單
             fetch(`get_merchandises.php?concert_id=${concertId}`)
             .then(res => res.json())
             .then(result => {
                 if (result.status === 'success' && result.data.length > 0) {
-                    merchContainer.innerHTML = ''; // 清空提示文字
+                    merchContainer.innerHTML = ''; 
                     
                     result.data.forEach(merch => {
                         const div = document.createElement('div');
@@ -105,21 +116,16 @@
                         let isDisabledAttr = 'disabled';
                         let stockDisplay = '';
 
-                        // 判斷庫存
                         if (merch.stock <= 0) {
                             stockDisplay = `<span class="stock-highlight" id="stock-count-${merch.merchandise_id}">❌ 已售罄</span>`;
                         } else {
-                            // 初始顯示原始庫存
                             stockDisplay = `<span class="stock-highlight" id="stock-count-${merch.merchandise_id}">(剩餘 ${merch.stock} 個)</span>`;
-                            
-                            // 計算最高購買數上限 4
                             const maxQty = Math.min(4, merch.stock);
                             for (let i = 1; i <= maxQty; i++) {
                                 optionsHTML += `<option value="${i}">${i} 件</option>`;
                             }
                         }
 
-                        // 將剩餘數量直接嵌入到 label 右邊
                         div.innerHTML = `
                             <label>
                                 ${merch.prod_name} ($${parseInt(merch.price)})：
@@ -137,7 +143,6 @@
                         merchContainer.appendChild(div);
                     });
 
-                    // 【核心加強】幫所有剛生成的周邊選單加上動態刷新庫存事件
                     setupMerchStockListeners();
 
                 } else {
@@ -145,7 +150,7 @@
                 }
             });
 
-            // 4. 當票區選擇後，解鎖張數與周邊商品
+            // 4. 當票區選擇後，解鎖張數與周邊商品，並更新實名制欄位
             zoneSelect.addEventListener('change', function() {
                 const merchSelects = document.querySelectorAll('.merch-select-field');
                 
@@ -162,41 +167,89 @@
                     confirmBtn.disabled = false;
                     confirmBtn.innerText = "立即前往結帳";
                     
+                    // 💡 新增：解鎖時依據目前的張數先產生一次實名制欄位
+                    updateAttendeeFields(parseInt(ticketQtySelect.value));
+
                     confirmBtn.onclick = function() {
-                    // 1. 額外抓取票區的「文字名稱」（例如："特A區 - $3200"）
-                    const zoneText = zoneSelect.options[zoneSelect.selectedIndex].text;
+                        const zoneText = zoneSelect.options[zoneSelect.selectedIndex].text;
 
-                    // 2. 抓取周邊商品的詳細資訊
-                    let merchSelections = {};
-                    const merchSelects = document.querySelectorAll('.merch-select-field');
-                    
-                    merchSelects.forEach(select => {
-                        const qty = select.value;
-                        if (qty > 0) {
-                            const merchId = select.getAttribute('data-id');
-                            // 往上找到當前商品的 label 標籤，把商品名稱拿出來（或在後端生成時直接存在 data 屬性）
-                            // 這裡最安全的方法是直接從畫面的 label 或自訂屬性拿。
-                            // 為了方便，我們可以在生成 HTML 時，把 name 和 price 也存成 data-name 和 data-price
-                            const name = select.getAttribute('data-name');
-                            const price = select.getAttribute('data-price');
-                            
-                            merchSelections[merchId] = {
-                                qty: qty,
-                                name: name,
-                                price: price
-                            };
+                        // 抓取周邊商品
+                        let merchSelections = {};
+                        const merchSelects = document.querySelectorAll('.merch-select-field');
+                        merchSelects.forEach(select => {
+                            const qty = select.value;
+                            if (qty > 0) {
+                                const merchId = select.getAttribute('data-id');
+                                const name = select.getAttribute('data-name');
+                                const price = select.getAttribute('data-price');
+                                
+                                merchSelections[merchId] = {
+                                    qty: qty,
+                                    name: name,
+                                    price: price
+                                };
+                            }
+                        });
+
+                        // 💡 新增：抓取實名制填寫的入場人資訊
+                        let attendeeData = [];
+                        const groups = document.querySelectorAll('.attendee-group');
+                        let isFormValid = true;
+
+                        groups.forEach((group, index) => {
+                            const nameInput = group.querySelector('.attendee-name');
+                            const idInput = group.querySelector('.attendee-id');
+
+                            // 簡單的前端防呆驗證
+                            if (!nameInput.value.trim() || !idInput.value.trim()) {
+                                isFormValid = false;
+                            }
+
+                            attendeeData.push({
+                                index: index + 1,
+                                name: nameInput.value.trim(),
+                                id_number: idInput.value.trim()
+                            });
+                        });
+
+                        if (!isFormValid) {
+                            alert("請填寫所有入場人的姓名與身分證字號！");
+                            return; // 擋下不讓跳轉
                         }
-                    });
 
-                    // 呼叫跳轉，把 zone_text 也當作網址變數傳過去
-                    goToCheckout(concertId, zoneSelect.value, zoneText, ticketQtySelect.value, merchSelections);
-                };
+                        // 呼叫跳轉，把 attendeeData 也傳過去
+                        goToCheckout(concertId, zoneSelect.value, zoneText, ticketQtySelect.value, merchSelections, attendeeData);
+                    };
                 } else {
                     lockSubFields();
                 }
             });
 
-            // 動態監聽周邊選單變更，隨選取數量扣除畫面的庫存
+            // 💡 新增：監聽購買張數變更事件，動態調整實名制欄位數量
+            ticketQtySelect.addEventListener('change', function() {
+                updateAttendeeFields(parseInt(this.value));
+            });
+
+            // 💡 新增：動態渲染實名制欄位的函數
+            function updateAttendeeFields(qty) {
+                attendeeContainer.innerHTML = ''; // 先清空舊欄位
+                
+                for (let i = 1; i <= qty; i++) {
+                    const div = document.createElement('div');
+                    div.className = 'attendee-group';
+                    div.innerHTML = `
+                        <h4>👤 第 ${i} 位入場人資訊</h4>
+                        <label>真實姓名：</label>
+                        <input type="text" class="attendee-name" placeholder="請輸入身分證上的姓名" required>
+                        
+                        <label>身分證字號：</label>
+                        <input type="text" class="attendee-id" placeholder="請輸入身分證字號" required>
+                    `;
+                    attendeeContainer.appendChild(div);
+                }
+            }
+
+            // 動態監聽周邊選單變更
             function setupMerchStockListeners() {
                 const merchSelects = document.querySelectorAll('.merch-select-field');
                 merchSelects.forEach(select => {
@@ -205,10 +258,8 @@
                         const maxStock = parseInt(this.getAttribute('data-max-stock'));
                         const userSelectedQty = parseInt(this.value);
                         
-                        // 尋找對應的紅字顯示區
                         const stockSpan = document.getElementById(`stock-count-${merchId}`);
                         if (stockSpan) {
-                            // 動態計算：最大庫存 - 會員目前選取的數量
                             const updatedStock = maxStock - userSelectedQty;
                             stockSpan.innerText = `剩餘 ${updatedStock} 個`;
                         }
@@ -221,6 +272,7 @@
                 document.querySelectorAll('.merch-select-field').forEach(select => select.disabled = true);
                 confirmBtn.disabled = true;
                 confirmBtn.innerText = "請先選擇區域";
+                attendeeContainer.innerHTML = '<p style="color: #95a5a6;">請先選擇區域與張數。</p>';
             }
 
             function resetForm() {
@@ -229,7 +281,6 @@
                 ticketQtySelect.value = "1";
                 document.querySelectorAll('.merch-select-field').forEach(select => {
                     select.value = "0";
-                    // 重設選單時，把畫面文字也改回最初的最大庫存
                     const merchId = select.getAttribute('data-id');
                     const maxStock = select.getAttribute('data-max-stock');
                     const stockSpan = document.getElementById(`stock-count-${merchId}`);
@@ -241,12 +292,14 @@
             }
         });
 
-        function goToCheckout(concertId, zoneId, zoneText, ticketQty, merchSelections) {
+        //  URL 變數傳遞
+        function goToCheckout(concertId, zoneId, zoneText, ticketQty, merchSelections, attendeeData) {
             const merchJson = encodeURIComponent(JSON.stringify(merchSelections));
+            const attendeeJson = encodeURIComponent(JSON.stringify(attendeeData)); // 打包實名制資料
             const zTextEncoded = encodeURIComponent(zoneText);
             const cTitleEncoded = encodeURIComponent(document.getElementById('event_name').innerText);
-            
-            window.location.href = `checkout.php?concert_id=${concertId}&concert_title=${cTitleEncoded}&zone_id=${zoneId}&zone_text=${zTextEncoded}&ticket_qty=${ticketQty}&merch_data=${merchJson}`;
+
+            window.location.href = `checkout.php?concert_id=${concertId}&concert_title=${cTitleEncoded}&zone_id=${zoneId}&zone_text=${zTextEncoded}&ticket_qty=${ticketQty}&merch_data=${merchJson}&attendee_data=${attendeeJson}`;
         }
     </script>
 
@@ -269,6 +322,13 @@
             <option value="2">2 張</option>
         </select>
         <div class="hint-text">⚠️ 每個帳號至多限購 2 張票券</div>
+
+        <div class="attendee-section">
+            <h2>📝 實名制入場人資訊</h2>
+            <div id="dynamic-attendee-container">
+                <p style="color: #95a5a6;">請先選擇區域與張數。</p>
+            </div>
+        </div>
 
         <div class="merch-section">
             <h2>🛍️ 官方周邊商品加購</h2>

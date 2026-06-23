@@ -1,5 +1,3 @@
-//是個大問題, 對應的schema都是錯的, 反正也還沒做完, 要先改schema
-
 <?php
 session_start();
 // 1. 檢查登入與基本安全檢查
@@ -14,14 +12,18 @@ require 'db_connect.php';
 // 2. 接收從 checkout.php POST 過來的資料
 $user_id       = $_SESSION['user_id'];
 $concert_id    = isset($_POST['concert_id']) ? intval($_POST['concert_id']) : 0;
-$zone_id       = isset($_POST['zone_id']) ? intval($_POST['zone_id']) : 0;
+$zone_id       = isset($_POST['zone_id']) ? $_POST['zone_id'] : 0;
 $ticket_qty    = isset($_POST['ticket_qty']) ? intval($_POST['ticket_qty']) : 0;
+$ticket_price  = isset($_POST['ticket_price']) ? intval($_POST['ticket_price']) : 0;
 $merch_data_str= isset($_POST['merch_data']) ? $_POST['merch_data'] : '';
 $total_amount  = isset($_POST['total_amount']) ? intval($_POST['total_amount']) : 0;
+$attendee_data_str = isset($_POST['attendee_data']) ? $_POST['attendee_data'] : '';
+
 
 $merch_list = json_decode($merch_data_str, true);
+$attendee_list = json_decode($attendee_data_str, true);
 
-
+echo $zone_id."<br>";
 foreach ($merch_list as $merch_id => $item) {
     if (intval($item['qty']) > 0) {
         echo "Merchandise ID: $merch_id, Name: {$item['name']}, Price: {$item['price']}, Quantity: {$item['qty']}<br>";
@@ -77,35 +79,37 @@ try {
         }
     }
 
+    // ==========================================
+    // 步驟 C：寫入主訂單資料表 (orders)
+    // ==========================================
 
-    // ==========================================
-    // 步驟 C：通通過關！寫入主訂單資料表 (orders)
-    // ==========================================
-    // 付款狀態欄位依照我們說好的，預設直接寫 '未付款' (Pending)
-    $stmtOrder = $pdo->prepare("INSERT INTO orders (user_id, concert_id, zone_id, ticket_qty, total_amount, payment_status, created_at) 
-                                VALUES (:user_id, :concert_id, :zone_id, :ticket_qty, :total_amount, '未付款', NOW())");
+    // 手動生成訂單 order_no
+    $new_order_id = date('YmdHis') . rand(1000, 9999); 
+
+    $stmtOrder = $pdo->prepare("INSERT INTO orders (order_no, identity_id, total_amount, payment_status, created_at) 
+                                VALUES (:order_no, :user_id, :total_amount, '未付款', NOW())");
     $stmtOrder->execute([
+        ':order_no'     => $new_order_id,
         ':user_id'      => $user_id,
-        ':concert_id'   => $concert_id,
-        ':zone_id'      => $zone_id,
-        ':ticket_qty'   => $ticket_qty,
         ':total_amount' => $total_amount
     ]);
+
+     echo "好欸<br>";
+
+    // ==========================================
+    // 步驟 D：寫入訂單明細表 (order_items)
+    // ==========================================
     
-    // 取得剛剛生成的訂單 ID
-    $new_order_id = $pdo->lastInsertId();
-
-
-    // ==========================================
-    // 步驟 D：寫入訂單周邊商品明細表 (order_items / order_merch)
-    // ==========================================
+    
+    // 寫入周邊商品明細
     if (is_array($merch_list) && count($merch_list) > 0) {
-        $stmtDetail = $pdo->prepare("INSERT INTO order_merchandises (order_id, merchandise_id, quantity, price) 
-                                     VALUES (:order_id, :merch_id, :qty, :price)");
+        $stmtMerch = $pdo->prepare("INSERT INTO order_items (order_no, zone_id, merchandise_id, item_type, quantity, unit_price, attendee_name, attendee_identity_no) 
+                                    VALUES (:order_id, NULL, :merch_id, 'merchandise', :qty, :price, NULL, NULL)");
+        
         foreach ($merch_list as $merch_id => $item) {
             if (intval($item['qty']) <= 0) continue;
             
-            $stmtDetail->execute([
+            $stmtMerch->execute([
                 ':order_id' => $new_order_id,
                 ':merch_id' => $merch_id,
                 ':qty'      => $item['qty'],
@@ -113,8 +117,33 @@ try {
             ]);
         }
     }
+
+    // 寫入票劵明細
+    if (is_array($attendee_list) && count($attendee_list) > 0) {
+        $stmtTicket = $pdo->prepare("INSERT INTO order_items (order_no, zone_id, merchandise_id, item_type, quantity, unit_price, attendee_name, attendee_identity_no) 
+                                    VALUES (:order_id, :zone_id, NULL, 'Ticket', 1, :price, :attendee_name, :attendee_id)");
+
+        // 依據入場人數量（也就是票數），一筆一筆分別寫入！
+        foreach ($attendee_list as $person) {
+            if (empty($person['name']) || empty($person['id_number'])) continue;
+
+            $stmtTicket->execute([
+                ':order_id'      => $new_order_id,
+                ':price'         => $ticket_price,  
+                ':zone_id'       => $zone_id,                   
+                ':attendee_name' => $person['name'],
+                ':attendee_id'   => $person['id_number']
+            ]);
+        }
+    }
+
+
+
     // 💡 萬事具備，正式提交確認！此時才會真正寫入資料庫變更
     $pdo->commit();
+
+    echo "以扣除數量<br>";
+
 
     // 下單成功，導向成功頁面，順便把訂單編號跟總金額傳過去顯示
     header("Location: order_success.php?order_id=" . $new_order_id . "&total=" . $total_amount);
@@ -125,9 +154,12 @@ try {
     // 剛剛扣掉的票、扣掉的周邊、寫一半的訂單，通通會倒帶回復原狀，完全不怕髒資料！
     $pdo->rollBack();
 
-    // 用 JavaScript 跳出失敗視窗，並退回上一頁讓使用者重新調整數量
+    // 💡 修正：使用 json_encode 把錯誤訊息轉成安全、有自動跳脫的 JS 字串
+    $safe_message = json_encode($e->getMessage(), JSON_UNESCAPED_UNICODE);
+
+    // 用 JavaScript 跳出失敗視窗，並退回上一頁
     echo "<script>
-            alert('" . $e->getMessage() . "');
+            alert({$safe_message});
             window.history.back();
           </script>";
     exit;
