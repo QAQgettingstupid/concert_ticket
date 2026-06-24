@@ -1,8 +1,8 @@
 <?php
 $host = '127.0.0.1';
-$db   = 'concert_ticket';
+$db   = 'db_project';
 $user = 'root';
-$pass = 'root';
+$pass = '';
 $charset = 'utf8mb4';
 
 $dsn = "mysql:host=$host;dbname=$db;charset=$charset";

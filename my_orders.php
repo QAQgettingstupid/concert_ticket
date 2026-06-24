@@ -12,7 +12,7 @@ $user_id = $_SESSION['user_id'];
 
 try {
     // 2. 撈取該會員的所有主訂單（依時間倒序排列，最新的在最上面）
-    $stmtOrder = $pdo->prepare("SELECT order_no, total_amount, payment_status, created_at 
+    $stmtOrder = $pdo->prepare("SELECT order_no, total_amount, status, created_at 
                                 FROM orders 
                                 WHERE identity_id = :user_id 
                                 ORDER BY created_at DESC");
@@ -184,30 +184,15 @@ try {
         }
 
         /* 實名制小卡片風格 */
-        .attendee-list-box {
+        .attendee-info-text {
             font-size: 0.88rem;
             color: #4a5568;
-            background-color: #f1f5f9; /* 改用優雅的淺灰藍 */
-            padding: 10px 14px;
-            border-radius: 6px;
-            display: block;
-            margin-top: 8px;
-            border-left: 4px solid #3498db; /* 保留好看的藍色左邊條 */
-        }
-
-        .attendee-title {
-            font-weight: bold;
-            color: #2c3e50;
-            margin-bottom: 5px;
-        }
-
-        .attendee-list-box ul li {
-            margin-bottom: 3px;
-            line-height: 1.4;
-        }
-
-        .attendee-list-box ul li:last-child {
-            margin-bottom: 0;
+            background-color: #edf2f7;
+            padding: 6px 10px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-top: 5px;
+            border-left: 3px solid #3498db;
         }
 
         /* 付款按鈕 */
@@ -227,16 +212,40 @@ try {
             background-color: #c0392b;
             color: white;
         }
+        .btn-delete {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: background 0.2s;
+            display: inline-block;  /* 加這行 */
+            white-space: nowrap;    /* 加這行，防止文字換行 */
+            flex-shrink: 0;         /* 加這行，防止被壓縮 */
+        }
+        .btn-delete:hover { background-color: #c0392b; }
+            
     </style>
 </head>
+            
+            
+            
 <body>
-
+          
 <div class="container">
     <div class="d-flex justify-content-between align-items-center mb-4 pb-2" style="border-bottom: 2px solid #e2e8f0;">
         <h2>📦 我的訂單紀錄</h2>
         <a href="home.php" class="btn-back">回首頁</a>
     </div>
-
+            <?php if (isset($_GET['msg']) && $_GET['msg'] === 'deleted'): ?>
+                <div style="background:#d1fae5; color:#065f46; padding:12px 20px; 
+                            border-radius:8px; margin-bottom:20px; font-weight:bold;">
+                    ✅ 訂單已成功刪除！
+                </div>
+            <?php endif; ?>
     <?php if (empty($orders)): ?>
         <div class="text-center py-5 bg-white rounded-3 shadow-sm border border-light-subtle">
             <p style="color: #95a5a6; font-size: 1.1rem; margin: 0;">✨ 目前還沒有任何訂單紀錄喔！</p>
@@ -245,27 +254,12 @@ try {
         <div class="accordion" id="ordersAccordion">
             <?php foreach ($orders as $order): 
                 $order_no = $order['order_no'];
-                $is_unpaid = ($order['payment_status'] === '未付款');
+                $is_unpaid = ($order['status'] === '未付款');
                 
-                // 💡 修改重點：多撈取 ticket_zones 中的 concert_title (或者關聯 concerts 表)
-                // 這裡假設 ticket_zones 表或與之關聯的結構內有包含活動名稱。如果它是關聯到 concerts 表，通常會再 LEFT JOIN concerts ON ticket_zones.concert_id = concerts.concert_id
-                $stmtItems = $pdo->prepare("
-                    SELECT 
-                        order_items.item_type, 
-                        order_items.quantity, 
-                        order_items.unit_price, 
-                        order_items.attendee_name, 
-                        order_items.attendee_identity_no,
-                        merchandises.prod_name,
-                        ticket_zones.zone_name,
-                        event_name
-                    FROM order_items
-                    LEFT JOIN merchandises ON order_items.merchandise_id = merchandises.merchandise_id
-                    LEFT JOIN ticket_zones ON order_items.zone_id = ticket_zones.zone_id
-                    LEFT JOIN event_dates ON ticket_zones.date_id = event_dates.date_id
-                    LEFT JOIN events ON event_dates.event_id = events.event_id
-                    WHERE order_no = :order_no
-                ");
+                // 撈出此訂單對應的全部明細
+                $stmtItems = $pdo->prepare("SELECT item_type, quantity, unit_price, zone_id, merchandise_id, attendee_name, attendee_identity_no 
+                                            FROM order_items 
+                                            WHERE order_no = :order_no");
                 $stmtItems->execute([':order_no' => $order_no]);
                 $items = $stmtItems->fetchAll(PDO::FETCH_ASSOC);
             ?>
@@ -283,10 +277,14 @@ try {
                                 <span class="click-hint">🔍 點擊看明細 ▼</span>
                             </h3>
                         </div>
-                        <div class="text-end">
-                            <div class="mb-2">
+                        <div class="text-end d-flex flex-column align-items-end gap-2">
+                            <div class="d-flex align-items-center gap-2">
                                 <span class="status-badge <?= $is_unpaid ? 'status-unpaid' : 'status-paid' ?>">
                                     <?= $is_unpaid ? '⏳ 未付款' : '✅ 已付款' ?>
+                                </span>
+                                <span class="btn-delete"
+                                        onclick="event.stopPropagation(); confirmDelete('<?= $order_no ?>')">
+                                    🗑️ 刪除
                                 </span>
                             </div>
                             <div class="price-highlight">$<?= number_format($order['total_amount']) ?> TWD</div>
@@ -315,49 +313,20 @@ try {
                                         $is_ticket = (strtolower($item['item_type']) === 'ticket');
                                     ?>
                                         <tr>
-                                            <td style="vertical-align: top; padding-top: 17px;">
-                                                <span class="badge" style="background-color: <?= $is_ticket ? '#3498db' : '#27ae60' ?>; font-size: 0.8rem; padding: 5px 8px; display: inline-block;">
+                                            <td>
+                                                <span class="badge" style="background-color: <?= $is_ticket ? '#3498db' : '#27ae60' ?>; font-size: 0.8rem; padding: 5px 8px;">
                                                     <?= $is_ticket ? '🎫 門票' : '🛍️ 周邊' ?>
                                                 </span>
                                             </td>
                                             
                                             <td>
                                                 <?php if ($is_ticket): ?>
-                                                    <div class="d-flex align-items-center mb-1" style="line-height: 1.2;">
-                                                        <strong class="me-1">活動：</strong>
-                                                        <span><?= htmlspecialchars($item['event_name'] ?? '未知活動') ?></span>
-                                                    </div>
-                                                    <div class="mb-2">
-                                                        <strong>票區：</strong><?= htmlspecialchars($item['zone_name'] ?? $item['zone_id']) ?>
-                                                    </div>
-                                                    
-                                                    <div class="attendee-list-box">
-                                                        <div class="attendee-title">👤 入場人資訊：</div>
-                                                        <ul class="list-unstyled mb-0 ps-2">
-                                                            <li>
-                                                                <strong>入場人姓名：</strong><?= htmlspecialchars($item['attendee_name']) ?>
-                                                            </li>
-                                                            <li>
-                                                                <strong>身分證字號：</strong>
-                                                                <?php 
-                                                                    $id_no = $item['attendee_identity_no'];
-                                                                    // 遮罩邏輯：如果長度足夠（通常10碼），將第4到第6碼替換為 ***
-                                                                    if (strlen($id_no) >= 10) {
-                                                                        $masked_id = substr($id_no, 0, 3) . '***' . substr($id_no, 6);
-                                                                    } else {
-                                                                        // 防止異常長度資料，做基本前後留尾
-                                                                        $masked_id = substr($id_no, 0, 2) . '***' . substr($id_no, -2);
-                                                                    }
-                                                                    echo htmlspecialchars($masked_id);
-                                                                ?>
-                                                            </li>
-                                                        </ul>
+                                                    <strong>票區 ID：</strong><?= htmlspecialchars($item['zone_id']) ?><br>
+                                                    <div class="attendee-info-text">
+                                                        👤 入場：<?= htmlspecialchars($item['attendee_name']) ?>（<?= htmlspecialchars($item['attendee_identity_no']) ?>）
                                                     </div>
                                                 <?php else: ?>
-                                                    <div class="d-flex align-items-center">
-                                                        <strong class="me-1">周邊：</strong>
-                                                        <span><?= htmlspecialchars($item['prod_name']) ?></span>
-                                                    </div>
+                                                    <strong>周邊 ID：</strong><?= htmlspecialchars($item['merchandise_id'] ?? $item['merch_id']) ?>
                                                 <?php endif; ?>
                                             </td>
                                             
@@ -375,8 +344,16 @@ try {
             <?php endforeach; ?>
         </div>
     <?php endif; ?>
+
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function confirmDelete(orderNo) {
+    if (confirm('確定要刪除訂單 #' + orderNo + ' 嗎？\n此動作無法復原！')) {
+        window.location.href = 'delete_order.php?order_no=' + orderNo;
+    }
+}
+</script>
 </body>
 </html>
