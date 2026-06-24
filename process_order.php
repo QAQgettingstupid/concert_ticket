@@ -23,84 +23,6 @@ $attendee_data_str = isset($_POST['attendee_data']) ? $_POST['attendee_data'] : 
 $merch_list = json_decode($merch_data_str, true);
 $attendee_list = json_decode($attendee_data_str, true);
 
-function isValidTaiwanID(string $id): bool {
-    $id = strtoupper(trim($id));
-    
-    // ① 格式檢查：1個大寫英文 + 9個數字
-    if (!preg_match('/^[A-Z][0-9]{9}$/', $id)) {
-        return false;
-    }
-
-    // ② 第一碼英文字母轉換對照表
-    $letter_map = [
-        'A'=>10,'B'=>11,'C'=>12,'D'=>13,'E'=>14,'F'=>15,'G'=>16,'H'=>17,
-        'I'=>34,'J'=>18,'K'=>19,'L'=>20,'M'=>21,'N'=>22,'O'=>35,'P'=>23,
-        'Q'=>24,'R'=>25,'S'=>26,'T'=>27,'U'=>28,'V'=>29,'W'=>32,'X'=>30,
-        'Y'=>31,'Z'=>33
-    ];
-
-    $n = $letter_map[$id[0]];
-
-    // ③ 檢查碼計算
-    // 英文字母轉成兩位數，十位數 × 1，個位數 × 9
-    $total = intval($n / 10) * 1 + ($n % 10) * 9;
-
-    // 第2到第9碼，各自乘以權重 8,7,6,5,4,3,2,1
-    $weights = [8, 7, 6, 5, 4, 3, 2, 1];
-    for ($i = 1; $i <= 8; $i++) {
-        $total += intval($id[$i]) * $weights[$i - 1];
-    }
-
-    // 最後一碼（第10碼）直接加入
-    $total += intval($id[9]);
-
-    // ④ 總和必須能被 10 整除才是合法身分證
-    return $total % 10 === 0;
-}
-
-if (!is_array($attendee_list) || count($attendee_list) === 0) {
-    die("<script>alert('請填寫入場人實名資料'); window.history.back();</script>");
-}
-
-foreach ($attendee_list as $person) {
-    $name      = trim($person['name'] ?? '');
-    $id_number = strtoupper(trim($person['id_number'] ?? ''));
-    $index     = intval($person['index']);
-
-    // ① 姓名不能空白
-    if (empty($name)) {
-        $msg = json_encode("第 {$index} 位入場人姓名不能空白", JSON_UNESCAPED_UNICODE);
-        die("<script>alert({$msg}); window.history.back();</script>");
-    }
-
-    // ② 身分證格式檢查
-    if (!isValidTaiwanID($id_number)) {
-        $msg = json_encode("第 {$index} 位（{$name}）身分證格式錯誤：{$id_number}\n正確格式：1個大寫英文 + 9個數字，例如 A123456789", JSON_UNESCAPED_UNICODE);
-        die("<script>alert({$msg}); window.history.back();</script>");
-    }
-
-    // ③ 檢查此身分證是否已買過同場演唱會
-    $stmtCheck = $pdo->prepare("
-        SELECT COUNT(*) 
-        FROM order_items oi
-        JOIN orders o      ON oi.order_no  = o.order_no
-        JOIN ticket_zones tz ON oi.zone_id = tz.zone_id
-        JOIN event_dates ed  ON tz.date_id = ed.date_id
-        WHERE oi.attendee_identity_no = ?
-          AND ed.event_id   = ?
-          AND oi.item_type  = 'Ticket'
-          AND o.status     != '已逾期'
-    ");
-    $stmtCheck->execute([$id_number, $concert_id]);
-
-    if ($stmtCheck->fetchColumn() > 0) {
-        $msg = json_encode("身分證 {$id_number}（{$name}）已購買過此演唱會門票\n每人每場限購一次，無法重複購買", JSON_UNESCAPED_UNICODE);
-        die("<script>alert({$msg}); window.history.back();</script>");
-    }
-}
-
-
-
 echo $zone_id."<br>";
 foreach ($merch_list as $merch_id => $item) {
     if (intval($item['qty']) > 0) {
@@ -113,7 +35,6 @@ if ($concert_id === 0 || $zone_id === 0 || $ticket_qty <= 0) {
 }
 
 try {
-   
     // 💡 核心安全機制開始：啟動資料庫交易 (Transaction)
     // 這樣可以確保「檢查庫存 -> 扣除庫存 -> 寫入訂單」這整串動作是原子性的（一失敗就全部不算數）
     $pdo->beginTransaction();
@@ -165,7 +86,7 @@ try {
     // 手動生成訂單 order_no
     $new_order_id = date('YmdHis') . rand(1000, 9999); 
 
-    $stmtOrder = $pdo->prepare("INSERT INTO orders (order_no, identity_id, total_amount, status, created_at) 
+    $stmtOrder = $pdo->prepare("INSERT INTO orders (order_no, identity_id, total_amount, payment_status, created_at) 
                                 VALUES (:order_no, :user_id, :total_amount, '未付款', NOW())");
     $stmtOrder->execute([
         ':order_no'     => $new_order_id,

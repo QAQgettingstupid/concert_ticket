@@ -1,13 +1,3 @@
-<?php
-session_start();
-require 'db_connect.php';
-
-// 撈出目前登入者的姓名和身分證
-$stmtUser = $pdo->prepare("SELECT name, identity_id FROM users WHERE identity_id = ?");
-$stmtUser->execute([$_SESSION['user_id']]);
-$current_user = $stmtUser->fetch(PDO::FETCH_ASSOC);
-?>
-
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -60,10 +50,6 @@ $current_user = $stmtUser->fetch(PDO::FETCH_ASSOC);
 <body>
 
     <script>
-        // PHP 把登入者資料注入 JS
-           const currentUserName = <?php echo json_encode($current_user['name']); ?>;
-           const currentUserID   = <?php echo json_encode($current_user['identity_id']); ?>;
-
         document.addEventListener('DOMContentLoaded', function() {
             const concertId = new URLSearchParams(window.location.search).get('concert_id');
             const concertTitle = new URLSearchParams(window.location.search).get('concert-title');
