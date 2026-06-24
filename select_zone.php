@@ -79,7 +79,7 @@
                 });
             });
 
-            // 3. 當日期變更時，抓取該日期的票區
+            // 2. 當日期變更時，抓取該日期的票區
             dateSelect.addEventListener('change', function() {
                 const selectedDateid = this.value;
                 if (!selectedDateid) {
@@ -101,7 +101,7 @@
                 });
             });
 
-            // 抓取該場次對應的資料庫周邊商品清單
+            // 3. 抓取該場次對應的資料庫周邊商品清單
             fetch(`get_merchandises.php?concert_id=${concertId}`)
             .then(res => res.json())
             .then(result => {
@@ -167,89 +167,251 @@
                     confirmBtn.disabled = false;
                     confirmBtn.innerText = "立即前往結帳";
                     
-                    // 💡 新增：解鎖時依據目前的張數先產生一次實名制欄位
                     updateAttendeeFields(parseInt(ticketQtySelect.value));
-
-                    confirmBtn.onclick = function() {
-                        const zoneText = zoneSelect.options[zoneSelect.selectedIndex].text;
-
-                        // 抓取周邊商品
-                        let merchSelections = {};
-                        const merchSelects = document.querySelectorAll('.merch-select-field');
-                        merchSelects.forEach(select => {
-                            const qty = select.value;
-                            if (qty > 0) {
-                                const merchId = select.getAttribute('data-id');
-                                const name = select.getAttribute('data-name');
-                                const price = select.getAttribute('data-price');
-                                
-                                merchSelections[merchId] = {
-                                    qty: qty,
-                                    name: name,
-                                    price: price
-                                };
-                            }
-                        });
-
-                        // 💡 新增：抓取實名制填寫的入場人資訊
-                        let attendeeData = [];
-                        const groups = document.querySelectorAll('.attendee-group');
-                        let isFormValid = true;
-
-                        groups.forEach((group, index) => {
-                            const nameInput = group.querySelector('.attendee-name');
-                            const idInput = group.querySelector('.attendee-id');
-
-                            // 簡單的前端防呆驗證
-                            if (!nameInput.value.trim() || !idInput.value.trim()) {
-                                isFormValid = false;
-                            }
-
-                            attendeeData.push({
-                                index: index + 1,
-                                name: nameInput.value.trim(),
-                                id_number: idInput.value.trim()
-                            });
-                        });
-
-                        if (!isFormValid) {
-                            alert("請填寫所有入場人的姓名與身分證字號！");
-                            return; // 擋下不讓跳轉
-                        }
-
-                        // 呼叫跳轉，把 attendeeData 也傳過去
-                        goToCheckout(concertId, zoneSelect.value, zoneText, ticketQtySelect.value, merchSelections, attendeeData);
-                    };
                 } else {
                     lockSubFields();
                 }
             });
 
-            // 💡 新增：監聽購買張數變更事件，動態調整實名制欄位數量
+            // 5. 當購買張數變更事件，動態調整實名制欄位數量
             ticketQtySelect.addEventListener('change', function() {
                 updateAttendeeFields(parseInt(this.value));
             });
 
-            // 💡 新增：動態渲染實名制欄位的函數
+            // 獨立移至最外層的「立即前往結帳」點擊事件處理
+            confirmBtn.onclick = async function() {
+                const selectedZoneId = zoneSelect.value;
+                const zoneText = zoneSelect.options[zoneSelect.selectedIndex].text;
+
+                if (!selectedZoneId) {
+                    return;
+                }
+
+                // 收集周邊商品
+                let merchSelections = {};
+                const merchSelects = document.querySelectorAll('.merch-select-field');
+                merchSelects.forEach(select => {
+                    const qty = parseInt(select.value);
+                    if (qty > 0) {
+                        const merchId = select.getAttribute('data-id');
+                        const name = select.getAttribute('data-name');
+                        const price = select.getAttribute('data-price');
+                        
+                        merchSelections[merchId] = {
+                            qty: qty,
+                            name: name,
+                            price: price
+                        };
+                    }
+                });
+
+                // 收集與驗證實名制資訊
+                let attendeeData = [];
+                const groups = document.querySelectorAll('.attendee-group');
+                let isAllValid = true; 
+                const idRegex = /^[A-Z][12]\d{8}$/; 
+
+                for (let index = 0; index < groups.length; index++) {
+                    const group = groups[index];
+                    const i = index + 1;
+                    const nameInput = group.querySelector('.attendee-name');
+                    const idInput = group.querySelector('.attendee-id');
+                    
+                    const nameVal = nameInput.value.trim();
+                    const idVal = idInput.value.trim().toUpperCase();
+
+                    // 清空欄位舊錯誤狀態
+                    const nameErrorDiv = document.getElementById(`name-error-msg-${i}`);
+                    nameErrorDiv.innerText = '';
+                    nameInput.style.borderColor = '#3498db';
+
+                    const idErrorDiv = document.getElementById(`id-error-msg-${i}`);
+                    idErrorDiv.innerText = '';
+                    idInput.style.borderColor = '#3498db';
+
+                    // 驗證姓名
+                    if (!nameVal) {
+                        isAllValid = false;
+                        nameErrorDiv.innerText = '❌ 請輸入真實姓名（欄位不可留空）';
+                        nameInput.style.borderColor = '#e74c3c';
+                    }
+
+                    // 驗證身分證格式
+                    if (!idVal) {
+                        isAllValid = false;
+                        idErrorDiv.innerText = '❌ 請輸入身分證字號（欄位不可留空）';
+                        idInput.style.borderColor = '#e74c3c';
+                    } else if (!idRegex.test(idVal)) {
+                        isAllValid = false;
+                        idErrorDiv.innerText = '❌ 身分證字號格式錯誤（須為1碼大寫英文 + 1或2 + 8碼數字）';
+                        idInput.style.borderColor = '#e74c3c';
+                    }
+
+                    attendeeData.push({
+                        index: i,
+                        name: nameVal,
+                        id_number: idVal,
+                        idInputObj: idInput,       
+                        idErrorDivObj: idErrorDiv  
+                    });
+                }
+
+                // 前端基本格式沒過，直接中端攔截並滾動
+                if (!isAllValid) {
+                    const errSection = document.querySelector('.attendee-section');
+                    errSection.scrollIntoView({ behavior: 'smooth' });
+                    return;
+                }
+
+                // 💡 【新增防禦】防範畫面上「同時填寫兩張票，兩張身分證輸入一模一樣」的狀況
+                let idValuesArray = attendeeData.map(a => a.id_number);
+                let findDuplicates = idValuesArray.filter((item, index) => idValuesArray.indexOf(item) !== index);
+                if (findDuplicates.length > 0 && findDuplicates[0] !== '') {
+                    attendeeData.forEach(attendee => {
+                        if (attendee.id_number === findDuplicates[0]) {
+                            attendee.idErrorDivObj.innerText = '❌ 同一筆訂單中，填寫的實名制身分證不可重複！';
+                            attendee.idInputObj.style.borderColor = '#e74c3c';
+                        }
+                    });
+                    const errSection = document.querySelector('.attendee-section');
+                    errSection.scrollIntoView({ behavior: 'smooth' });
+                    return; // 確實攔截
+                }
+
+                // 前端初檢通過，發送 POST 連線到後端 API 檢查重複購票資格
+                confirmBtn.disabled = true;
+                confirmBtn.innerText = "正在驗證購票資格...";
+
+                let hasDuplicate = false; 
+
+                try {
+                    for (let attendee of attendeeData) {
+                        const response = await fetch('check_identity.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            body: new URLSearchParams({
+                                'zone_id': selectedZoneId,
+                                'identity_no': attendee.id_number
+                            })
+                        });
+                        
+                        // 讀取成文字檔以防後端噴非 JSON 的髒資料
+                        const rawText = await response.text();
+                        let checkResult;
+                        
+                        try {
+                            checkResult = JSON.parse(rawText);
+                        } catch(e) {
+                            console.error("JSON 解析失敗，後端回傳：", rawText);
+                            attendee.idErrorDivObj.innerText = "❌ 系統回應格式錯誤，請聯絡管理員。";
+                            attendee.idInputObj.style.borderColor = '#e74c3c';
+                            hasDuplicate = true;
+                            continue;
+                        }
+
+                        if (checkResult.status === 'exists') {
+                            // 直接在該欄位下方注入紅字訊息
+                            attendee.idErrorDivObj.innerText = checkResult.message;
+                            attendee.idInputObj.style.borderColor = '#e74c3c';
+                            
+                            if (!hasDuplicate) {
+                                attendee.idInputObj.focus();
+                                attendee.idInputObj.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                hasDuplicate = true;
+                            }
+                        } else if (checkResult.status === 'error') {
+                            attendee.idErrorDivObj.innerText = `❌ ${checkResult.message}`;
+                            attendee.idInputObj.style.borderColor = '#e74c3c';
+                            hasDuplicate = true;
+                        }
+                    }
+
+                } catch (error) {
+                    console.error("驗證身分證時發生連線錯誤:", error);
+                    const globalErrorDiv = document.getElementById('id-error-msg-1');
+                    if (globalErrorDiv) {
+                        globalErrorDiv.innerText = "❌ 系統驗證連線失敗，請稍後再試。";
+                    }
+                    hasDuplicate = true; // 發生連線異常，強制鎖定不給過
+                }
+
+                // ⚡ 重要修正：只要被標記為重複或錯誤，不論在哪個階段，絕對要 return 中斷，不可執行 goToCheckout
+                if (hasDuplicate) {
+                    confirmBtn.disabled = false;
+                    confirmBtn.innerText = "立即前往結帳";
+                    return; 
+                }
+
+                // 驗證全部通過，移除暫存的 DOM 物件後重定向至結帳頁面
+                const cleanAttendeeData = attendeeData.map(item => ({
+                    index: item.index,
+                    name: item.name,
+                    id_number: item.id_number
+                }));
+
+                goToCheckout(concertId, selectedZoneId, zoneText, ticketQtySelect.value, merchSelections, cleanAttendeeData);
+            };
+
+            // 動態渲染實名制欄位
             function updateAttendeeFields(qty) {
-                attendeeContainer.innerHTML = ''; // 先清空舊欄位
+                attendeeContainer.innerHTML = ''; 
                 
                 for (let i = 1; i <= qty; i++) {
                     const div = document.createElement('div');
                     div.className = 'attendee-group';
                     div.innerHTML = `
                         <h4>👤 第 ${i} 位入場人資訊</h4>
+                        
                         <label>真實姓名：</label>
-                        <input type="text" class="attendee-name" placeholder="請輸入身分證上的姓名" required>
+                        <input type="text" class="attendee-name" id="name-input-${i}" placeholder="請輸入身分證上的姓名" required oninput="validateName(this, ${i})">
+                        <div id="name-error-msg-${i}" style="color: #e74c3c; font-size: 0.88rem; font-weight: bold; min-height: 20px; margin-top: -5px; margin-bottom: 10px;"></div>
                         
                         <label>身分證字號：</label>
-                        <input type="text" class="attendee-id" placeholder="請輸入身分證字號" required>
+                        <input type="text" class="attendee-id" id="id-input-${i}" placeholder="請輸入身分證字號 (範例：A123456789)" required oninput="validateIdentity(this, ${i})">
+                        <div id="id-error-msg-${i}" style="color: #e74c3c; font-size: 0.88rem; font-weight: bold; min-height: 20px; margin-top: -5px; margin-bottom: 10px;"></div>
                     `;
                     attendeeContainer.appendChild(div);
                 }
             }
 
-            // 動態監聽周邊選單變更
+            window.validateName = function(inputElement, index) {
+                const val = inputElement.value.trim();
+                const errorDiv = document.getElementById(`name-error-msg-${index}`);
+
+                if (val === '') {
+                    errorDiv.innerText = '❌ 請輸入真實姓名（欄位不可留空）';
+                    inputElement.style.borderColor = '#e74c3c'; 
+                    return false;
+                } else {
+                    errorDiv.innerText = '';
+                    inputElement.style.borderColor = '#3498db';
+                    return true;
+                }
+            }
+
+            window.validateIdentity = function(inputElement, index) {
+                inputElement.value = inputElement.value.toUpperCase(); 
+                const val = inputElement.value.trim();
+                const errorDiv = document.getElementById(`id-error-msg-${index}`);
+                const regex = /^[A-Z][12]\d{8}$/;
+
+                if (val === '') {
+                    errorDiv.innerText = '❌ 請輸入身分證字號（欄位不可留空）';
+                    inputElement.style.borderColor = '#e74c3c';
+                    return false;
+                } else if (!regex.test(val)) {
+                    errorDiv.innerText = '❌ 身分證字號格式錯誤（須為1碼大寫英文 + 1或2 + 8碼數字）';
+                    inputElement.style.borderColor = '#e74c3c';
+                    return false;
+                } else {
+                    errorDiv.innerText = '';
+                    inputElement.style.borderColor = '#3498db';
+                    return true;
+                }
+            }
+
             function setupMerchStockListeners() {
                 const merchSelects = document.querySelectorAll('.merch-select-field');
                 merchSelects.forEach(select => {
@@ -292,10 +454,9 @@
             }
         });
 
-        //  URL 變數傳遞
         function goToCheckout(concertId, zoneId, zoneText, ticketQty, merchSelections, attendeeData) {
             const merchJson = encodeURIComponent(JSON.stringify(merchSelections));
-            const attendeeJson = encodeURIComponent(JSON.stringify(attendeeData)); // 打包實名制資料
+            const attendeeJson = encodeURIComponent(JSON.stringify(attendeeData)); 
             const zTextEncoded = encodeURIComponent(zoneText);
             const cTitleEncoded = encodeURIComponent(document.getElementById('event_name').innerText);
 

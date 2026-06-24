@@ -184,15 +184,30 @@ try {
         }
 
         /* 實名制小卡片風格 */
-        .attendee-info-text {
+        .attendee-list-box {
             font-size: 0.88rem;
             color: #4a5568;
-            background-color: #edf2f7;
-            padding: 6px 10px;
-            border-radius: 4px;
-            display: inline-block;
-            margin-top: 5px;
-            border-left: 3px solid #3498db;
+            background-color: #f1f5f9; /* 改用優雅的淺灰藍 */
+            padding: 10px 14px;
+            border-radius: 6px;
+            display: block;
+            margin-top: 8px;
+            border-left: 4px solid #3498db; /* 保留好看的藍色左邊條 */
+        }
+
+        .attendee-title {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .attendee-list-box ul li {
+            margin-bottom: 3px;
+            line-height: 1.4;
+        }
+
+        .attendee-list-box ul li:last-child {
+            margin-bottom: 0;
         }
 
         /* 付款按鈕 */
@@ -232,10 +247,25 @@ try {
                 $order_no = $order['order_no'];
                 $is_unpaid = ($order['payment_status'] === '未付款');
                 
-                // 撈出此訂單對應的全部明細
-                $stmtItems = $pdo->prepare("SELECT item_type, quantity, unit_price, zone_id, merchandise_id, attendee_name, attendee_identity_no 
-                                            FROM order_items 
-                                            WHERE order_no = :order_no");
+                // 💡 修改重點：多撈取 ticket_zones 中的 concert_title (或者關聯 concerts 表)
+                // 這裡假設 ticket_zones 表或與之關聯的結構內有包含活動名稱。如果它是關聯到 concerts 表，通常會再 LEFT JOIN concerts ON ticket_zones.concert_id = concerts.concert_id
+                $stmtItems = $pdo->prepare("
+                    SELECT 
+                        order_items.item_type, 
+                        order_items.quantity, 
+                        order_items.unit_price, 
+                        order_items.attendee_name, 
+                        order_items.attendee_identity_no,
+                        merchandises.prod_name,
+                        ticket_zones.zone_name,
+                        event_name
+                    FROM order_items
+                    LEFT JOIN merchandises ON order_items.merchandise_id = merchandises.merchandise_id
+                    LEFT JOIN ticket_zones ON order_items.zone_id = ticket_zones.zone_id
+                    LEFT JOIN event_dates ON ticket_zones.date_id = event_dates.date_id
+                    LEFT JOIN events ON event_dates.event_id = events.event_id
+                    WHERE order_no = :order_no
+                ");
                 $stmtItems->execute([':order_no' => $order_no]);
                 $items = $stmtItems->fetchAll(PDO::FETCH_ASSOC);
             ?>
@@ -285,20 +315,49 @@ try {
                                         $is_ticket = (strtolower($item['item_type']) === 'ticket');
                                     ?>
                                         <tr>
-                                            <td>
-                                                <span class="badge" style="background-color: <?= $is_ticket ? '#3498db' : '#27ae60' ?>; font-size: 0.8rem; padding: 5px 8px;">
+                                            <td style="vertical-align: top; padding-top: 17px;">
+                                                <span class="badge" style="background-color: <?= $is_ticket ? '#3498db' : '#27ae60' ?>; font-size: 0.8rem; padding: 5px 8px; display: inline-block;">
                                                     <?= $is_ticket ? '🎫 門票' : '🛍️ 周邊' ?>
                                                 </span>
                                             </td>
                                             
                                             <td>
                                                 <?php if ($is_ticket): ?>
-                                                    <strong>票區 ID：</strong><?= htmlspecialchars($item['zone_id']) ?><br>
-                                                    <div class="attendee-info-text">
-                                                        👤 入場：<?= htmlspecialchars($item['attendee_name']) ?>（<?= htmlspecialchars($item['attendee_identity_no']) ?>）
+                                                    <div class="d-flex align-items-center mb-1" style="line-height: 1.2;">
+                                                        <strong class="me-1">活動：</strong>
+                                                        <span><?= htmlspecialchars($item['event_name'] ?? '未知活動') ?></span>
+                                                    </div>
+                                                    <div class="mb-2">
+                                                        <strong>票區：</strong><?= htmlspecialchars($item['zone_name'] ?? $item['zone_id']) ?>
+                                                    </div>
+                                                    
+                                                    <div class="attendee-list-box">
+                                                        <div class="attendee-title">👤 入場人資訊：</div>
+                                                        <ul class="list-unstyled mb-0 ps-2">
+                                                            <li>
+                                                                <strong>入場人姓名：</strong><?= htmlspecialchars($item['attendee_name']) ?>
+                                                            </li>
+                                                            <li>
+                                                                <strong>身分證字號：</strong>
+                                                                <?php 
+                                                                    $id_no = $item['attendee_identity_no'];
+                                                                    // 遮罩邏輯：如果長度足夠（通常10碼），將第4到第6碼替換為 ***
+                                                                    if (strlen($id_no) >= 10) {
+                                                                        $masked_id = substr($id_no, 0, 3) . '***' . substr($id_no, 6);
+                                                                    } else {
+                                                                        // 防止異常長度資料，做基本前後留尾
+                                                                        $masked_id = substr($id_no, 0, 2) . '***' . substr($id_no, -2);
+                                                                    }
+                                                                    echo htmlspecialchars($masked_id);
+                                                                ?>
+                                                            </li>
+                                                        </ul>
                                                     </div>
                                                 <?php else: ?>
-                                                    <strong>周邊 ID：</strong><?= htmlspecialchars($item['merchandise_id'] ?? $item['merch_id']) ?>
+                                                    <div class="d-flex align-items-center">
+                                                        <strong class="me-1">周邊：</strong>
+                                                        <span><?= htmlspecialchars($item['prod_name']) ?></span>
+                                                    </div>
                                                 <?php endif; ?>
                                             </td>
                                             
