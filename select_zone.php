@@ -1,3 +1,13 @@
+<?php
+session_start();
+require 'db_connect.php';
+
+// 撈出目前登入者的姓名和身分證
+$stmtUser = $pdo->prepare("SELECT name, identity_id FROM users WHERE identity_id = ?");
+$stmtUser->execute([$_SESSION['user_id']]);
+$current_user = $stmtUser->fetch(PDO::FETCH_ASSOC);
+?>
+
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -50,6 +60,10 @@
 <body>
 
     <script>
+        // PHP 把登入者資料注入 JS
+           const currentUserName = <?php echo json_encode($current_user['name']); ?>;
+           const currentUserID   = <?php echo json_encode($current_user['identity_id']); ?>;
+
         document.addEventListener('DOMContentLoaded', function() {
             const concertId = new URLSearchParams(window.location.search).get('concert_id');
             const concertTitle = new URLSearchParams(window.location.search).get('concert-title');
@@ -232,23 +246,43 @@
 
             // 💡 新增：動態渲染實名制欄位的函數
             function updateAttendeeFields(qty) {
-                attendeeContainer.innerHTML = ''; // 先清空舊欄位
+                attendeeContainer.innerHTML = '';
                 
                 for (let i = 1; i <= qty; i++) {
                     const div = document.createElement('div');
                     div.className = 'attendee-group';
-                    div.innerHTML = `
-                        <h4>👤 第 ${i} 位入場人資訊</h4>
-                        <label>真實姓名：</label>
-                        <input type="text" class="attendee-name" placeholder="請輸入身分證上的姓名" required>
-                        
-                        <label>身分證字號：</label>
-                        <input type="text" class="attendee-id" placeholder="請輸入身分證字號" required>
-                    `;
+
+                    if (i === 1) {
+                        // 第一位：鎖住，顯示會員自己的資料
+                        div.innerHTML = `
+                            <h4>👤 第 ${i} 位入場人資訊（購票本人）</h4>
+                            <label>真實姓名：</label>
+                            <input type="text" class="attendee-name"
+                                value="${currentUserName}" readonly
+                                style="background:#f0f0f0; color:#666; cursor:not-allowed;">
+                            
+                            <label>身分證字號：</label>
+                            <input type="text" class="attendee-id"
+                                value="${currentUserID}" readonly
+                                style="background:#f0f0f0; color:#666; cursor:not-allowed;">
+                        `;
+                    } else {
+                        // 第二位以後：可以自由填寫
+                        div.innerHTML = `
+                            <h4>👤 第 ${i} 位入場人資訊</h4>
+                            <label>真實姓名：</label>
+                            <input type="text" class="attendee-name"
+                                placeholder="請輸入身分證上的姓名" required>
+                            
+                            <label>身分證字號：</label>
+                            <input type="text" class="attendee-id"
+                                placeholder="請輸入身分證字號" required>
+                        `;
+                    }
+
                     attendeeContainer.appendChild(div);
                 }
             }
-
             // 動態監聽周邊選單變更
             function setupMerchStockListeners() {
                 const merchSelects = document.querySelectorAll('.merch-select-field');
