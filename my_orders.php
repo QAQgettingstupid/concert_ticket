@@ -45,6 +45,17 @@
         .attendee-title { font-weight: bold; color: #2c3e50; margin-bottom: 5px; }
         .attendee-list-box ul li { margin-bottom: 3px; line-height: 1.4; }
         .attendee-list-box ul li:last-child { margin-bottom: 0; }
+
+        /* 💡 補上刪除按鈕與成功提示的樣式 */
+        .btn-delete {
+            background-color: #e74c3c; color: white; border: none; padding: 6px 14px;
+            border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.85rem;
+            transition: background 0.2s; display: inline-block; white-space: nowrap; flex-shrink: 0;
+        }
+        .btn-delete:hover { background-color: #c0392b; }
+        .alert-success-custom {
+            background:#d1fae5; color:#065f46; padding:12px 20px; border-radius:8px; margin-bottom:20px; font-weight:bold;
+        }
     </style>
 </head>
 <body>
@@ -54,6 +65,8 @@
         <h2>📦 我的訂單紀錄</h2>
         <a href="home.php" class="btn-back">回首頁</a>
     </div>
+
+    <div id="msg-container"></div>
 
     <div id="orders-container">
         <div class="text-center py-5">
@@ -68,6 +81,16 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
+    // 💡 檢查網址是否有 ?msg=deleted，有的話顯示刪除成功提示
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('msg') === 'deleted') {
+        document.getElementById('msg-container').innerHTML = `
+            <div class="alert-success-custom">
+                ✅ 訂單已成功刪除！
+            </div>
+        `;
+    }
+
     // 網頁載入完成後，發送 fetch 請求給後端 API
     fetch('get_orders.php')
         .then(response => response.json())
@@ -149,7 +172,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     `;
                 });
 
-                // 組合單個訂單卡片
+                // 組合單個訂單卡片 (💡 已在右側內嵌「🗑️ 刪除」按鈕)
                 accordionHTML += `
                     <div class="accordion-item">
                         <button class="order-trigger-btn" 
@@ -164,9 +187,12 @@ document.addEventListener("DOMContentLoaded", function() {
                                     <span class="click-hint">🔍 點擊看明細 ▼</span>
                                 </h3>
                             </div>
-                            <div class="text-end">
-                                <div class="mb-2">
+                            <div class="text-end d-flex flex-column align-items-end gap-2">
+                                <div class="d-flex align-items-center gap-2">
                                     <span class="status-badge ${badgeClass}">${statusText}</span>
+                                    <span class="btn-delete" onclick="event.stopPropagation(); confirmDelete('${escapeHtml(order.order_no)}')">
+                                        🗑️ 刪除
+                                    </span>
                                 </div>
                                 <div class="price-highlight">$${escapeHtml(order.formatted_total)} TWD</div>
                             </div>
@@ -207,6 +233,13 @@ document.addEventListener("DOMContentLoaded", function() {
             `;
         });
 });
+
+// 💡 補上刪除確認與跳轉的 JavaScript 函式
+function confirmDelete(orderNo) {
+    if (confirm('確定要刪除訂單 #' + orderNo + ' 嗎？\n此動作無法復原！')) {
+        window.location.href = 'delete_order.php?order_no=' + orderNo;
+    }
+}
 
 // XSS 防護用轉義函式
 function escapeHtml(text) {
