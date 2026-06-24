@@ -6,11 +6,11 @@ header('Content-Type: application/json; charset=utf-8');
 require 'db_connect.php';
 
 // 3. 接收並清理從前端透過 POST 傳過來的表單數據
-$zone_id     = isset($_POST['zone_id']) ? trim($_POST['zone_id']) : '';
+$date_id     = isset($_POST['date_id']) ? trim($_POST['date_id']) : '';
 $identity_no = isset($_POST['identity_no']) ? trim($_POST['identity_no']) : '';
 
 // 4. 基礎防錯驗證：確保參數都有正確傳入
-if ($zone_id <= 0 || empty($identity_no)) {
+if ($date_id <= 0  || empty($identity_no)) {
     echo json_encode([
         'status' => 'error',
         'message' => '缺少必要的驗證參數（區域 ID 或身分證字號）'
@@ -22,13 +22,13 @@ try {
     // 5. 執行資料庫查詢
     // 💡 既然只管 zone_id，可以直接查 order_items 即可，不需 JOIN orders
     $sql = "SELECT COUNT(*) 
-            FROM order_items
-            WHERE zone_id = :zone_id 
+            FROM order_items join ticket_zones on order_items.zone_id = ticket_zones.zone_id
+            WHERE ticket_zones.date_id = :date_id
               AND attendee_identity_no = :identity_no";
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
-        ':zone_id'     => $zone_id,
+        ':date_id'     => $date_id,
         ':identity_no' => $identity_no
     ]);
     

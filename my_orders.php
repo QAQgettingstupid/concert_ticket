@@ -324,8 +324,7 @@ try {
                                             <td>
                                                 <?php if ($is_ticket): ?>
                                                     <div class="d-flex align-items-center mb-1" style="line-height: 1.2;">
-                                                        <strong class="me-1">活動：</strong>
-                                                        <span><?= htmlspecialchars($item['event_name'] ?? '未知活動') ?></span>
+                                                        <strong><span><?= htmlspecialchars($item['event_name'] ?? '未知活動') ?></span></strong>
                                                     </div>
                                                     <div class="mb-2">
                                                         <strong>票區：</strong><?= htmlspecialchars($item['zone_name'] ?? $item['zone_id']) ?>
@@ -355,8 +354,7 @@ try {
                                                     </div>
                                                 <?php else: ?>
                                                     <div class="d-flex align-items-center">
-                                                        <strong class="me-1">周邊：</strong>
-                                                        <span><?= htmlspecialchars($item['prod_name']) ?></span>
+                                                        <strong><span><?= htmlspecialchars($item['prod_name']) ?></span></strong>
                                                     </div>
                                                 <?php endif; ?>
                                             </td>
