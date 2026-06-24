@@ -95,7 +95,7 @@ CREATE TABLE `merchandises` (
 
 LOCK TABLES `merchandises` WRITE;
 /*!40000 ALTER TABLE `merchandises` DISABLE KEYS */;
-INSERT INTO `merchandises` VALUES (1,1,'泰勒絲 紀念螢光棒',500.00,1000,'ts_stick.jpg'),(2,1,'泰勒絲 限定款 T-Shirt',1200.00,500,'ts_shirt.jpg'),(3,2,'五月天 藍色螢光棒',450.00,2000,'md_stick.jpg'),(4,2,'五月天 演唱會帽T',1500.00,300,'md_hoodie.jpg');
+INSERT INTO `merchandises` VALUES (1,1,'泰勒絲 紀念螢光棒',500.00,981,'ts_stick.jpg'),(2,1,'泰勒絲 限定款 T-Shirt',1200.00,477,'ts_shirt.jpg'),(3,2,'五月天 藍色螢光棒',450.00,2000,'md_stick.jpg'),(4,2,'五月天 演唱會帽T',1500.00,300,'md_hoodie.jpg');
 /*!40000 ALTER TABLE `merchandises` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -122,8 +122,9 @@ CREATE TABLE `order_items` (
   KEY `fk_oi_merchandises` (`merchandise_id`),
   CONSTRAINT `fk_oi_merchandises` FOREIGN KEY (`merchandise_id`) REFERENCES `merchandises` (`merchandise_id`) ON DELETE SET NULL,
   CONSTRAINT `fk_oi_orders` FOREIGN KEY (`order_no`) REFERENCES `orders` (`order_no`) ON DELETE CASCADE,
-  CONSTRAINT `fk_oi_ticket_zones` FOREIGN KEY (`zone_id`) REFERENCES `ticket_zones` (`zone_id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  CONSTRAINT `fk_oi_ticket_zones` FOREIGN KEY (`zone_id`) REFERENCES `ticket_zones` (`zone_id`) ON DELETE SET NULL,
+  CONSTRAINT `chk_ticket_attendee` CHECK ((((`item_type` = _utf8mb4'Ticket') and (`attendee_name` is not null) and (`attendee_identity_no` is not null)) or (`item_type` <> _utf8mb4'Ticket')))
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -132,6 +133,7 @@ CREATE TABLE `order_items` (
 
 LOCK TABLES `order_items` WRITE;
 /*!40000 ALTER TABLE `order_items` DISABLE KEYS */;
+INSERT INTO `order_items` VALUES (5,'202606241348388534','1_20261023_GA',NULL,'Ticket',1,4800.00,'444','A444444444'),(6,'202606241452323358',NULL,1,'merchandise',4,500.00,NULL,NULL),(7,'202606241452323358',NULL,2,'merchandise',3,1200.00,NULL,NULL),(8,'202606241452323358','1_20261025_GA',NULL,'Ticket',1,4800.00,'444','A444444444');
 /*!40000 ALTER TABLE `order_items` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -146,7 +148,7 @@ CREATE TABLE `orders` (
   `order_no` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '訂單編號',
   `identity_id` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '外鍵：參照 Users',
   `total_amount` decimal(10,2) NOT NULL COMMENT '總金額(門票+周邊)',
-  `status` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '保留中' COMMENT '保留中/已付款/已逾期',
+  `payment_status` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '保留中' COMMENT '保留中/已付款/已逾期',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '下單時間',
   PRIMARY KEY (`order_no`),
   KEY `identity_id` (`identity_id`),
@@ -160,6 +162,7 @@ CREATE TABLE `orders` (
 
 LOCK TABLES `orders` WRITE;
 /*!40000 ALTER TABLE `orders` DISABLE KEYS */;
+INSERT INTO `orders` VALUES ('202606241348388534','A444444444',4800.00,'未付款','2026-06-24 19:48:38'),('202606241452323358','A444444444',10400.00,'未付款','2026-06-24 20:52:32');
 /*!40000 ALTER TABLE `orders` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -189,7 +192,7 @@ CREATE TABLE `ticket_zones` (
 
 LOCK TABLES `ticket_zones` WRITE;
 /*!40000 ALTER TABLE `ticket_zones` DISABLE KEYS */;
-INSERT INTO `ticket_zones` VALUES ('1_20261023_GA',101,'看台一般區',4800.00,2000,2000),('1_20261023_VVIP',101,'搖滾VVIP區',8800.00,500,500),('1_20261024_GA',102,'看台一般區',4800.00,2000,2000),('1_20261024_VVIP',102,'搖滾VVIP區',8800.00,500,500),('1_20261025_GA',103,'看台一般區',4800.00,2000,2000),('1_20261025_VVIP',103,'搖滾VVIP區',8800.00,500,500),('2_20261230_CAT_A',201,'瘋狂搖滾A區',4500.00,1000,1000),('2_20261230_CAT_B',201,'漫遊看台B區',2800.00,3000,3000),('2_20261231_CAT_A',202,'瘋狂搖滾A區',5500.00,1000,1000),('2_20261231_CAT_B',202,'漫遊看台B區',3200.00,3000,3000),('3_20261105_BALC',301,'二樓蛋頂看台',1800.00,1500,1500),('3_20261105_ROCK',301,'地表最強搖滾區',6800.00,800,800),('3_20261106_BALC',302,'二樓蛋頂看台',1800.00,1500,1500),('3_20261106_ROCK',302,'地表最強搖滾區',6800.00,800,800),('3_20261107_BALC',303,'二樓蛋頂看台',1800.00,1500,1500),('3_20261107_ROCK',303,'地表最強搖滾區',6800.00,800,800),('4_20261114_FLOOR',401,'全場站位搖滾區',2200.00,1000,1000),('4_20261115_FLOOR',402,'全場站位搖滾區',2200.00,1000,1000),('5_20260925_BALC',501,'三樓高空包廂區',2500.00,400,400),('5_20260925_STALLS',501,'一樓正中央座位區',5200.00,600,600),('5_20260926_BALC',502,'三樓高空包廂區',2500.00,400,400),('5_20260926_STALLS',502,'一樓正中央座位區',5200.00,600,600);
+INSERT INTO `ticket_zones` VALUES ('1_20261023_GA',101,'看台一般區',4800.00,2000,1997),('1_20261023_VVIP',101,'搖滾VVIP區',8800.00,500,500),('1_20261024_GA',102,'看台一般區',4800.00,2000,2000),('1_20261024_VVIP',102,'搖滾VVIP區',8800.00,500,500),('1_20261025_GA',103,'看台一般區',4800.00,2000,1999),('1_20261025_VVIP',103,'搖滾VVIP區',8800.00,500,500),('2_20261230_CAT_A',201,'瘋狂搖滾A區',4500.00,1000,1000),('2_20261230_CAT_B',201,'漫遊看台B區',2800.00,3000,3000),('2_20261231_CAT_A',202,'瘋狂搖滾A區',5500.00,1000,1000),('2_20261231_CAT_B',202,'漫遊看台B區',3200.00,3000,3000),('3_20261105_BALC',301,'二樓蛋頂看台',1800.00,1500,1500),('3_20261105_ROCK',301,'地表最強搖滾區',6800.00,800,800),('3_20261106_BALC',302,'二樓蛋頂看台',1800.00,1500,1500),('3_20261106_ROCK',302,'地表最強搖滾區',6800.00,800,800),('3_20261107_BALC',303,'二樓蛋頂看台',1800.00,1500,1500),('3_20261107_ROCK',303,'地表最強搖滾區',6800.00,800,800),('4_20261114_FLOOR',401,'全場站位搖滾區',2200.00,1000,1000),('4_20261115_FLOOR',402,'全場站位搖滾區',2200.00,1000,1000),('5_20260925_BALC',501,'三樓高空包廂區',2500.00,400,400),('5_20260925_STALLS',501,'一樓正中央座位區',5200.00,600,600),('5_20260926_BALC',502,'三樓高空包廂區',2500.00,400,400),('5_20260926_STALLS',502,'一樓正中央座位區',5200.00,600,600);
 /*!40000 ALTER TABLE `ticket_zones` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -217,7 +220,7 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES ('A111111111','$2y$10$unN/bFXHb1B3YOTF9Qjw5eBrftH/L6/2hsTJ70Cheipb6EUL8WyJm','123','1@1','0123456789','2026-06-20 14:39:26'),('A222222222','$2y$10$Lr8kGSqjEXwX3hHQ1yfuHewlSIwARUdn5fUga9V.0p5opXxHxLqNq','123','1@1','0111111111','2026-06-20 14:45:14'),('A333333333','$2y$10$zGFplsa.MH5arWq40aOqA.zjziJfS0D8cYDZWlMAms54qQNctQ7N2','333','1@2','0222222222','2026-06-20 14:47:08'),('A444444444','$2y$10$RFM8Z493lTa3Lw32BBIV/eKsh.FA4fFYfZuSrZCdSx1R5xQk4X83C','444','4@4','0222222222','2026-06-20 15:15:56');
+INSERT INTO `users` VALUES ('A111111111','$2y$10$unN/bFXHb1B3YOTF9Qjw5eBrftH/L6/2hsTJ70Cheipb6EUL8WyJm','123','1@1','0123456789','2026-06-20 14:39:26'),('A222222222','$2y$10$Lr8kGSqjEXwX3hHQ1yfuHewlSIwARUdn5fUga9V.0p5opXxHxLqNq','123','1@1','0111111111','2026-06-20 14:45:14'),('A333333333','$2y$10$zGFplsa.MH5arWq40aOqA.zjziJfS0D8cYDZWlMAms54qQNctQ7N2','333','1@2','0222222222','2026-06-20 14:47:08'),('A444444444','$2y$10$RFM8Z493lTa3Lw32BBIV/eKsh.FA4fFYfZuSrZCdSx1R5xQk4X83C','444','4@4','0222222222','2026-06-20 15:15:56'),('A555555555','$2y$10$YCzeX2Oi4niXgkmi.QnsLuh59nvLTTpS/DsTeo7HtOV8JAfluP7Z.','忘記密碼','5@5','0956871234','2026-06-23 18:57:42'),('A666666666','$2y$10$.JX8LTChlaLdCTT42tH2heBSrbWNak03uERGOslx3bbYHIVnqYDxy','欸嘿','6@6','0123456789','2026-06-24 20:54:08'),('A777777777','$2y$10$2sxOFyzNz5WwC9x7pZAOhuQol8mue4a2bBwxh2Yz063Wdfh2CoVAe','真的會成功嗎','7@7','0123456789','2026-06-24 20:58:13');
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -230,4 +233,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-06-23 16:12:56
+-- Dump completed on 2026-06-24 23:48:10
