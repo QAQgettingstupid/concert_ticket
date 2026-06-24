@@ -18,13 +18,13 @@
 
 <div class="login-card">
     <h2>會員登入</h2>
-    <form action="auth_login.php" method="POST">
+    <form action="auth_login.php<?php echo isset($_GET['redirect']) ? '?redirect=' . urlencode($_GET['redirect']) : ''; ?>" method="POST">
         <input type="text" name="identity_id" placeholder="身分證字號" required>
         <input type="password" name="password" placeholder="密碼" required>
         <button type="submit" class="btn-login">登入</button>
     </form>
     <div class="register-link">
-        還沒有帳號嗎？ <a href="register.php">立即免費註冊</a>
+        還沒有帳號嗎？ <a href="register.php<?php echo isset($_GET['redirect']) ? '?redirect=' . urlencode($_GET['redirect']) : ''; ?>">立即免費註冊</a>
     </div>
 </div>
 

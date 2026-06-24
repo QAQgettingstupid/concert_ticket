@@ -83,7 +83,8 @@
                     initializeTicketSystem();
                 } else {
                     alert(`驗證失敗：${result.message}，請重新登入！`);
-                    window.location.href = 'login.php'; // 導回登入頁
+                    const currentUrl = encodeURIComponent(window.location.href);
+                    window.location.href = `login.php?redirect=${currentUrl}`;
                 }
             })
             .catch(err => {

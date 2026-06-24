@@ -17,7 +17,7 @@
 
 <div class="register-card">
     <h2>立即註冊會員</h2>
-    <form action="auth_register.php" method="POST">
+    <form action="auth_register.php<?php echo isset($_GET['redirect']) ? '?redirect=' . urlencode($_GET['redirect']) : ''; ?>" method="POST">
         <input type="text" name="identity_id" placeholder="身分證字號 (10碼)" required pattern="[A-Z0-9]{10}" title="請輸入正確的身分證字號格式">
         <input type="password" name="password" placeholder="密碼" required minlength="6">
         <input type="text" name="name" placeholder="姓名" required>
@@ -26,7 +26,7 @@
         <button type="submit" class="btn-register">完成註冊</button>
     </form>
     <div class="login-link">
-        已有帳號？ <a href="login.php">登入搶票</a>
+        已有帳號？ <a href="login.php<?php echo isset($_GET['redirect']) ? '?redirect=' . urlencode($_GET['redirect']) : ''; ?>">登入搶票</a>
     </div>
 </div>
 
